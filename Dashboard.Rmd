@@ -1,0 +1,688 @@
+---
+title: "Dashboard"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+---
+
+Visualizaciones {data-icon="fa-signal"}
+=====================================
+
+ComexPerú. (2022, 18 de febrero). Índice de Percepción de la Corrupción 2021: el Perú retrocede once posiciones y ocupa el puesto 105 de 180 economías. ComexPerú. 
+https://www.comexperu.org.pe/articulo/indice-de-percepcion-de-la-corrupcion-2021-el-peru-retrocede-once-posiciones-y-ocupa-el-puesto-105-de-180-economias 
+
+```{r}
+library(rio)
+library(dygraphs)
+```
+
+-------------------------------------
+
+### Percepción de la corrupción en el Perú 2021
+
+---
+
+Como se puede apreciar en el gráfico, la percepción de la corrupción en el Perú, en comparación con otros países aledaños, como Uruguay, Chile, Colombia y Brasil,incrementó notoriamente y llegó al nivel más alto el año 2021. Este dashboard propone mostrar el motivo de este aumento mediante una regresión y distintos gráficos que explican este pensamiento en los ciudadanos peruanos acerca de la corrupción que es uno de los problemas principales en el país.
+
+Visualizaciones2 {data-icon="fa-signal"}
+=====================================
+
+```{r}
+library(rio)
+library(cluster)
+library(sf)
+library(rnaturalearth)
+library(rnaturalearthdata)
+library(psych)        
+library(FactoMineR) 
+library(factoextra) 
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+
+peru_raw <- import("PER_2021_LAPOP_AmericasBarometer_v1.2_w (1).dta")
+
+peru <- peru_raw %>%
+  select(
+     Percepcion = exc7new,
+     Confianza = anestg,
+     Participacion = wvsi2,
+     Respeto = b6,
+     Transparencia = exc6,
+     Tolerancia = pn4
+  )
+
+colSums(is.na(peru))
+peru_limpio <- peru %>% drop_na(Participacion)
+peru_limpio <- peru %>% filter(!if_all(everything(), is.na))
+colSums(is.na(peru_limpio))
+peru_cambio <- peru_limpio %>% 
+  mutate(across(everything(), ~ .x + 1))
+peru_final <- peru_cambio %>% 
+  mutate(across(everything(), ~ ifelse(is.na(.x), 0, .x)))
+```
+```{r setup, include=FALSE}
+library(flexdashboard)
+```
+
+### Regresión 
+
+```{r}
+modelo1 <- lm(Percepcion ~ Confianza + Participacion + Respeto + Transparencia + Tolerancia, data = peru_final)
+summary(modelo1)
+```
+
+
+Visualizaciones3 {data-icon="fa-signal"}
+===================================== 
+
+### Gráfico de líneas 1 
+
+```{r}
+peru_line <- peru_final %>%
+  group_by(Confianza) %>%
+  summarise(media_percepcion = mean(Percepcion))
+
+ggplot(peru_line, aes(x = Confianza, y = media_percepcion)) +
+  geom_line(color = "blue", linewidth = 1.2) +
+  geom_point(size = 2) +
+  labs(
+    title = "Media de Percepción según niveles de Confianza",
+    x = "Confianza",
+    y = "Percepción promedio"
+  )
+```
+
+Visualizaciones4 {data-icon="fa-signal"}
+===================================== 
+
+```{r}
+peru_line <- peru_final %>%
+  group_by(Participacion) %>%
+  summarise(media_percepcion = mean(Percepcion))
+
+ggplot(peru_line, aes(x = Participacion, y = media_percepcion)) +
+  geom_line(color = "blue", linewidth = 1.2) +
+  geom_point(size = 2) +
+  labs(
+    title = "Media de Percepción según niveles de Confianza",
+    x = "Confianza",
+    y = "Percepción promedio"
+  )
+```
+
+Visualizaciones5 {data-icon="fa-signal"}
+===================================== 
+
+### Gráfico de líneas 3 
+
+```{r}
+peru_line <- peru_final %>%
+  group_by(Respeto) %>%
+  summarise(media_percepcion = mean(Percepcion))
+
+ggplot(peru_line, aes(x = Respeto, y = media_percepcion)) +
+  geom_line(color = "blue", linewidth = 1.2) +
+  geom_point(size = 2) +
+  labs(
+    title = "Media de Percepción según niveles de Confianza",
+    x = "Confianza",
+    y = "Percepción promedio"
+  )
+```
+
+Visualizaciones6 {data-icon="fa-signal"}
+===================================== 
+
+### Gráfico de líneas 4
+
+```{r}
+peru_line <- peru_final %>%
+  group_by(Transparencia) %>%
+  summarise(media_percepcion = mean(Percepcion))
+
+ggplot(peru_line, aes(x = Transparencia, y = media_percepcion)) +
+  geom_line(color = "blue", linewidth = 1.2) +
+  geom_point(size = 2) +
+  labs(
+    title = "Media de Percepción según niveles de Confianza",
+    x = "Confianza",
+    y = "Percepción promedio"
+  )
+```
+
+Visualizaciones7 {data-icon="fa-signal"}
+===================================== 
+
+### Gráfico de líneas 5 
+
+```{r}
+peru_line <- peru_final %>%
+  group_by(Tolerancia) %>%
+  summarise(media_percepcion = mean(Percepcion))
+
+ggplot(peru_line, aes(x = Tolerancia, y = media_percepcion)) +
+  geom_line(color = "blue", linewidth = 1.2) +
+  geom_point(size = 2) +
+  labs(
+    title = "Media de Percepción según niveles de Confianza",
+    x = "Confianza",
+    y = "Percepción promedio"
+  )
+```
+
+Visualizaciones8 {data-icon="fa-signal"}
+===================================== 
+
+### Gráfico de líneas múltiple
+
+```{r}
+independientes <- c("Confianza", "Participacion", "Respeto",
+                    "Transparencia", "Tolerancia")
+
+peru_long <- peru_final %>%
+  pivot_longer(
+    cols = all_of(independientes),
+    names_to = "Variable",
+    values_to = "Nivel"
+  )
+peru_line <- peru_long %>%
+  group_by(Variable, Nivel) %>%
+  summarise(media = mean(Percepcion))
+
+ggplot(peru_line, aes(x = Nivel, y = media, color = Variable, group = Variable)) +
+  geom_line(linewidth = 1) +
+  geom_point(size = 2) +
+  labs(
+    title = "Percepción promedio por niveles de cada variable independiente",
+    x = "Nivel",
+    y = "Media de Percepción"
+  ) +
+  theme_bw()
+```
+
+Visualizaciones9 {data-icon="fa-signal"}
+===================================== 
+
+### Gráfico de puntos 1
+
+```{r}
+library(ggplot2)
+ggplot(peru_final, aes(x = Confianza, y = Percepcion)) +
+  geom_point(alpha = 0.4) +
+  geom_smooth(method = "lm", se = FALSE, color = "red") +
+  labs(
+    title = "Percepción vs Confianza",
+    x = "Confianza en las instituciones",
+    y = "Percepción de la corrupción"
+  )
+```
+
+
+Visualizaciones10 {data-icon="fa-signal"}
+===================================== 
+
+### Gráfico de puntos 2
+
+```{r}
+ggplot(peru_final, aes(x = Participacion, y = Percepcion)) +
+  geom_point(alpha = 0.4) +
+  geom_smooth(method = "lm", se = FALSE, color = "red") +
+  labs(
+    title = "Percepción vs Participación",
+    x = "Participación política/social",
+    y = "Percepción de la corrupción"
+  )
+```
+
+
+Visualizaciones11 {data-icon="fa-signal"}
+===================================== 
+
+### Gráfico de puntos 3 
+
+```{r}
+ggplot(peru_final, aes(x = Respeto, y = Percepcion)) +
+  geom_point(alpha = 0.4) +
+  geom_smooth(method = "lm", se = FALSE, color = "red") +
+  labs(
+    title = "Percepción vs Respeto",
+    x = "Respeto a las instituciones",
+    y = "Percepción de la corrupción"
+  )
+```
+
+
+Visualizaciones12 {data-icon="fa-signal"}
+===================================== 
+
+### Gráfico de puntos 4
+
+```{r}
+ggplot(peru_final, aes(x = Transparencia, y = Percepcion)) +
+  geom_point(alpha = 0.4) +
+  geom_smooth(method = "lm", se = FALSE, color = "red") +
+  labs(
+    title = "Percepción vs Transparencia",
+    x = "Transparencia del Estado",
+    y = "Percepción de la corrupción"
+  )
+```
+
+
+Visualizaciones13 {data-icon="fa-signal"}
+===================================== 
+
+### Gráfico de puntos 5 
+
+```{r}
+ggplot(peru_final, aes(x = Tolerancia, y = Percepcion)) +
+  geom_point(alpha = 0.4) +
+  geom_smooth(method = "lm", se = FALSE, color = "red") +
+  labs(
+    title = "Percepción vs Tolerancia a la corrupción",
+    x = "Tolerancia hacia la corrupción",
+    y = "Percepción de la corrupción"
+  )
+```
+
+Visualizaciones14 {data-icon="fa-signal"}
+===================================== 
+
+### Gráfico de densidad 1
+
+```{r}
+ggplot(peru_final, aes(x = Percepcion, fill = factor(Tolerancia))) +
+  geom_density(alpha = 0.4) +
+  labs(
+    title = "Densidad de Percepción por niveles de Tolerancia",
+    x = "Percepción",
+    y = "Densidad",
+    fill = "Tolerancia"
+  )
+```
+
+Visualizaciones15 {data-icon="fa-signal"}
+===================================== 
+
+### Gráfico de densidad 2
+
+```{r}
+ggplot(peru_final, aes(x = Percepcion)) +
+  geom_density(fill = "lightgreen", alpha = 0.6) +
+  labs(
+    title = "Densidad de Percepción de corrupción",
+    x = "Percepción",
+    y = "Densidad"
+  )
+```
+
+Visualizaciones16 {data-icon="fa-signal"}
+===================================== 
+
+### Gráfico de densidad 3
+
+```{r}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+
+independientes <- c("Confianza", "Participacion", "Respeto",
+                    "Transparencia", "Tolerancia")
+
+peru_all2 <- peru_final %>%
+  pivot_longer(
+    cols = all_of(independientes),
+    names_to = "Variable",
+    values_to = "Valor"
+  )
+ggplot(peru_all2, aes(x = Valor, fill = Variable)) +
+  geom_density(alpha = 0.35) +
+  labs(
+    title = "Densidad de las variables independientes",
+    x = "Valor de la variable",
+    y = "Densidad",
+    fill = "Variable"
+  ) +
+  theme_bw()
+```
+
+Visualizaciones17 {data-icon="fa-signal"}
+===================================== 
+
+### Gráfico de barras de error
+
+```{r}
+library(dplyr)
+
+peru_error <- peru_final %>%
+  group_by(Tolerancia) %>%
+  summarise(
+    media = mean(Percepcion),
+    se = sd(Percepcion) / sqrt(n())
+  )
+
+ggplot(peru_error, aes(x = Tolerancia, y = media)) +
+  geom_col(fill = "lightblue") +
+  geom_errorbar(aes(ymin = media - se, ymax = media + se), width = 0.2) +
+  labs(
+    title = "Percepción promedio con barras de error por nivel de Tolerancia",
+    x = "Tolerancia",
+    y = "Media de Percepción"
+  )
+```
+
+Visualizaciones18 {data-icon="fa-signal"}
+===================================== 
+
+### Gráfico de barras 
+
+```{r}
+independientes <- c("Confianza", "Participacion", "Respeto", "Transparencia", "Tolerancia")
+
+peru_B <- peru_final %>%
+  pivot_longer(
+    cols = all_of(independientes),
+    names_to = "Variable",
+    values_to = "Nivel"
+  )
+peru_all <- peru_B %>%
+  group_by(Variable, Nivel) %>%
+  summarise( media = mean(Percepcion), se = sd(Percepcion) / sqrt(n()))
+ggplot(peru_all, aes(x = factor(Nivel), y = media, fill = Variable)) +
+  geom_col(position = position_dodge(width = 0.8)) +
+  geom_errorbar(
+    aes(ymin = media - se, ymax = media + se),
+    position = position_dodge(width = 0.8),
+    width = 0.2
+  ) +
+  labs(
+    title = "Media de Percepción por niveles de todas las variables independientes",
+    x = "Nivel de la variable",
+    y = "Media de Percepción"
+  ) +
+  theme_bw()
+```
+
+
+Tablas {data-icon="fa-table"}
+=====================================     
+
+### Tabla 1
+    
+```{r}
+library(dplyr)
+library(ggplot2)
+
+vars_corr <- peru_final %>%
+  select(Percepcion, Confianza, Participacion, Respeto, Transparencia, Tolerancia)
+
+corr_matrix <- cor(vars_corr, use = "pairwise.complete.obs")
+corr_matrix
+```
+
+Tablas2 {data-icon="fa-table"}
+=====================================
+
+### Tabla 2
+
+```{r}
+corr_df <- as.data.frame(as.table(round(corr_matrix, 2)))
+colnames(corr_df) <- c("Var1", "Var2", "value")
+head(corr_df)
+```
+
+Visualizaciones19 {data-icon="fa-signal"}
+===================================== 
+    
+### Gráfico de correlación   
+```{r}
+ggplot(corr_df, aes(x = Var1, y = Var2, fill = value)) +
+  geom_tile(color = "white") +
+  scale_fill_gradient2(
+    low = "blue", mid = "white", high = "red",
+    midpoint = 0, limits = c(-1, 1),
+    name = "Correlación"
+  ) +
+  geom_text(aes(label = value), size = 3) +
+  labs(
+    title = "Matriz de correlación entre Percepción y variables independientes",
+    x = "",
+    y = ""
+  ) +
+  theme_bw() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+```
+
+Tablas3 {data-icon="fa-table"}
+=====================================     
+
+### Tabla KMO
+    
+```{r}
+Peru_factor <- peru_final %>%
+  select(Confianza, Participacion, Respeto, Transparencia, Tolerancia)
+Peru_factor_scaled <- scale(Peru_factor)
+KMO(Peru_factor_scaled)  
+cortest.bartlett(Peru_factor_scaled) 
+```
+
+Tablas4 {data-icon="fa-table"}
+===================================== 
+
+### Tabla 4
+
+```{r}
+fa_result <- fa(Peru_factor_scaled, nfactors = 2, rotate = "varimax")
+fa_result
+```
+
+Visualizaciones20 {data-icon="fa-signal"}
+===================================== 
+    
+### Gráfico EFA
+```{r}
+library(ggplot2)
+
+loadings_df <- as.data.frame(fa_result$loadings[1:ncol(Peru_factor_scaled), ])
+loadings_df$Variable <- rownames(loadings_df)
+
+ggplot(loadings_df, aes(x = MR1, y = MR2, label = Variable)) +  
+  geom_point(color = "blue", size = 3) +
+  geom_text(vjust = -0.5) +
+  labs(
+    title = "Cargas factoriales (EFA)",
+    x = "Factor 1",
+    y = "Factor 2"
+  ) +
+  theme_minimal()
+```
+
+Visualizaciones21 {data-icon="fa-signal"}
+===================================== 
+    
+### Índice para determinar K
+
+```{r}
+cluster_vars <- peru_final %>%
+  select(Confianza, Participacion, Respeto, Transparencia, Tolerancia)
+cluster_scaled <- scale(cluster_vars)
+```
+```{r}
+fviz_nbclust(cluster_scaled, kmeans, method = "silhouette") +
+  labs(title = "Índice de Silueta para determinar K")
+```
+
+
+### Visualización de clusters PCA 
+
+```{r}
+set.seed(123)
+k2 <- kmeans(cluster_scaled, centers = 2, nstart = 25)
+peru_final$cluster_k2 <- factor(k2$cluster)
+```
+```{r}
+fviz_cluster(
+  k2, 
+  data = cluster_scaled, 
+  geom = "point",
+  ellipse.type = "convex",
+  show.clust.cent = TRUE,
+  main = "Visualización de clusters mediante PCA (K=2)"
+)
+```
+
+
+Tablas5 {data-icon="fa-table"}
+=====================================     
+
+### Tablas 6
+    
+```{r}
+cluster_profile <- peru_final %>%
+  group_by(cluster_k2) %>%
+  summarise(
+    Confianza = mean(Confianza),
+    Participacion = mean(Participacion),
+    Respeto = mean(Respeto),
+    Transparencia = mean(Transparencia),
+    Tolerancia = mean(Tolerancia)
+  )
+
+cluster_profile
+```
+  
+Visualizaciones22 {data-icon="fa-signal"}
+===================================== 
+    
+### AGNES
+    
+```{r}
+agnes_res <- agnes(cluster_scaled, method = "ward")
+```
+```{r}
+
+fviz_dend(
+  as.hclust(agnes_res),
+  k = 2,
+  show_labels = FALSE,
+  main = "AGNES"
+)
+```
+
+
+Tablas6 {data-icon="fa-table"}
+=====================================     
+
+### Tablas 7
+    
+```{r}
+agnes_clusters <- cutree(as.hclust(agnes_res), k = 2)
+table(agnes_clusters)
+```
+   
+Visualizaciones23 {data-icon="fa-signal"}
+===================================== 
+
+### DIANA
+
+```{r}
+library(cluster)
+
+cluster_vars <- peru_final %>%
+  select(Confianza, Participacion, Respeto, Transparencia, Tolerancia)
+
+cluster_scaled <- scale(cluster_vars)
+
+diana_res <- diana(cluster_scaled)
+
+fviz_dend(
+  as.hclust(diana_res),
+  k = 2,              
+  rect = TRUE,        
+  show_labels = FALSE,
+  main = "DIANA",
+  xlab = "Observaciones",
+  ylab = "Altura"
+)
+```
+
+
+Tablas7 {data-icon="fa-table"}
+=====================================     
+
+### Tablas 8
+    
+```{r}
+diana_clusters <- cutree(as.hclust(diana_res), k = 2)
+table(diana_clusters)
+```  
+
+Visualizaciones24 {data-icon="fa-signal"}
+===================================== 
+    
+### PAM
+    
+```{r}
+pam_res <- pam(cluster_scaled, k = 2)
+fviz_cluster(pam_res, geom = "point",
+             main = "Clusters PAM (k = 2)")
+```
+ 
+
+### PAM
+
+```{r}
+fviz_silhouette(pam_res)
+```
+
+
+Tablas8 {data-icon="fa-table"}
+=====================================     
+
+### Tablas 9
+    
+```{r}
+pam_res$medoids
+```
+    
+### Tablas 10
+
+```{r}
+peru_final$cluster_pam <- pam_res$clustering
+cluster_profile_pam <- peru_final %>%
+  group_by(cluster_pam) %>%
+  summarise(
+    Confianza     = mean(Confianza),
+    Participacion = mean(Participacion),
+    Respeto       = mean(Respeto),
+    Transparencia = mean(Transparencia),
+    Tolerancia    = mean(Tolerancia)
+  )
+
+cluster_profile_pam
+```
+   
+Tablas9 {data-icon="fa-table"}
+=====================================   
+
+### Tablas 11
+    
+```{r}
+table(Kmeans = peru_final$cluster_k2, AGNES = agnes_clusters)
+table(Kmeans = peru_final$cluster_k2, PAM = peru_final$cluster_pam)
+```
+
+Tablas10 {data-icon="fa-table"}
+=====================================      
+
+### Tablas 12
+
+```{r}
+cluster_profile
+cluster_profile_pam
+```
+
